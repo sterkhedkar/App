@@ -2,9 +2,16 @@ import { useStore } from '../state/store';
 import { METHOD_LABELS } from '../lib/calc';
 import { date, money } from '../lib/format';
 import { nextOpenRound } from '../lib/draw';
+import { sampleBhishi } from '../lib/sample';
+import { navigate } from '../App';
 
 export default function Home() {
-  const { state } = useStore();
+  const { state, dispatch } = useStore();
+  const loadSample = () => {
+    const bhishi = sampleBhishi();
+    dispatch({ type: 'create', bhishi });
+    navigate(`/bhishi/${bhishi.id}`);
+  };
 
   if (state.bhishis.length === 0) {
     return (
@@ -15,6 +22,9 @@ export default function Home() {
           <a className="btn" href="#/new">
             Set up your first bhishi
           </a>
+          <button type="button" className="btn btn-ghost" onClick={loadSample}>
+            Load a sample bhishi
+          </button>
           <a className="btn btn-ghost" href="#/calculator">
             Try the calculator
           </a>
@@ -27,9 +37,14 @@ export default function Home() {
     <div>
       <div className="page-head">
         <h1>My Bhishis</h1>
-        <a className="btn" href="#/new">
-          + New Bhishi
-        </a>
+        <div className="row">
+          <button type="button" className="btn btn-ghost" onClick={loadSample}>
+            Load sample
+          </button>
+          <a className="btn" href="#/new">
+            + New Bhishi
+          </a>
+        </div>
       </div>
       <div className="cards">
         {state.bhishis.map((b) => {

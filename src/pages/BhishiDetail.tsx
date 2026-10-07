@@ -6,6 +6,7 @@ import { drawWinner, eligibleMembers, nextOpenRound } from '../lib/draw';
 import { useStore } from '../state/store';
 import { OutcomeTable, ScheduleTable } from '../components/Tables';
 import { navigate } from '../App';
+import { ConfirmButton } from '../components/ConfirmButton';
 
 type Tab = 'overview' | 'members' | 'rounds' | 'math' | 'settings';
 const TABS: [Tab, string][] = [
@@ -136,11 +137,6 @@ function Members({ b }: { b: Bhishi }) {
     setEditing(null);
   };
 
-  const remove = (m: Member) => {
-    if (wins.has(m.id)) return;
-    if (confirm(`Remove ${m.name} from ${b.name}? Their payment records will be deleted.`)) dispatch({ type: 'removeMember', id: b.id, memberId: m.id });
-  };
-
   return (
     <div className="card">
       <div className="page-head">
@@ -182,7 +178,7 @@ function Members({ b }: { b: Bhishi }) {
                   <strong>{m.name}</strong>
                   {m.notes && <div className="muted small">{m.notes}</div>}
                 </td>
-                <td>{m.phone ? <a href={`tel:${m.phone}`}>{m.phone}</a> : <span className="muted">—</span>}</td>
+                <td>{m.phone || <span className="muted">—</span>}</td>
                 <td>{m.email || <span className="muted">—</span>}</td>
                 <td>
                   {wins.has(m.id) ? <span className="pill pill-won">Won round {wins.get(m.id)}</span> : m.active ? <span className="pill">Yet to win</span> : <span className="pill pill-off">On hold</span>}
@@ -202,9 +198,16 @@ function Members({ b }: { b: Bhishi }) {
                       {m.active ? 'Hold' : 'Activate'}
                     </button>
                   )}
-                  <button className="link danger" disabled={wins.has(m.id)} title={wins.has(m.id) ? 'Members who have won cannot be removed — they still owe instalments.' : ''} onClick={() => remove(m)}>
+                  <ConfirmButton
+                    className="link danger"
+                    disabled={wins.has(m.id)}
+                    title={wins.has(m.id) ? 'Members who have won cannot be removed. They still owe instalments.' : ''}
+                    question={`Remove ${m.name}?`}
+                    confirmLabel="Remove"
+                    onConfirm={() => dispatch({ type: 'removeMember', id: b.id, memberId: m.id })}
+                  >
                     Remove
-                  </button>
+                  </ConfirmButton>
                 </td>
               </tr>
             ))}
@@ -332,12 +335,14 @@ function Payments({ b, round, row }: { b: Bhishi; round: Round; row: RoundBreakd
           Mark all paid
         </button>
         {round.winnerId && isLast && (
-          <button
+          <ConfirmButton
             className="btn btn-ghost btn-small danger"
-            onClick={() => confirm(`Undo the result of round ${round.number}?`) && dispatch({ type: 'setWinner', id: b.id, round: round.number, winnerId: null })}
+            question={`Undo round ${round.number}'s result?`}
+            confirmLabel="Undo"
+            onConfirm={() => dispatch({ type: 'setWinner', id: b.id, round: round.number, winnerId: null })}
           >
             Undo winner
-          </button>
+          </ConfirmButton>
         )}
       </div>
     </div>
@@ -512,13 +517,15 @@ function Settings({ b }: { b: Bhishi }) {
     dispatch({ type: 'update', id: b.id, patch: { payoutOrder: order } });
   };
 
-  const exportJson = () => {
-    const blob = new Blob([JSON.stringify(b, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `${b.name.replace(/\W+/g, '-')}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+  const [showJson, setShowJson] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const json = JSON.stringify(b, null, 2);
+  const copyJson = () => {
+    setShowJson(true);
+    navigator.clipboard
+      ?.writeText(json)
+      .then(() => setCopied(true))
+      .catch(() => setCopied(false));
   };
 
   return (
@@ -574,21 +581,27 @@ function Settings({ b }: { b: Bhishi }) {
       <div className="card">
         <h2>Data</h2>
         <div className="row">
-          <button className="btn btn-ghost" onClick={exportJson}>
-            Export as JSON
+          <button className="btn btn-ghost" onClick={copyJson}>
+            Copy as JSON
           </button>
-          <button
+          <ConfirmButton
             className="btn btn-ghost danger"
-            onClick={() => {
-              if (confirm(`Delete "${b.name}" permanently?`)) {
-                dispatch({ type: 'delete', id: b.id });
-                navigate('/');
-              }
+            question={`Delete "${b.name}" permanently?`}
+            confirmLabel="Delete"
+            onConfirm={() => {
+              dispatch({ type: 'delete', id: b.id });
+              navigate('/');
             }}
           >
             Delete bhishi
-          </button>
+          </ConfirmButton>
         </div>
+        {showJson && (
+          <>
+            <p className="muted small">{copied ? 'Copied to clipboard.' : 'Select the text below and copy it.'}</p>
+            <textarea id="export-json" rows={8} readOnly value={json} onFocus={(e) => e.target.select()} />
+          </>
+        )}
       </div>
     </div>
   );
